@@ -1,31 +1,23 @@
 const express = require("express");
+const axios = require("axios");
+const cheerio = require("cheerio");
 const cors = require("cors");
-const { chromium } = require("playwright");
 
 const app = express();
 app.use(cors());
 
-async function fetchPage(url) {
-    const browser = await chromium.launch({
-        headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox"]
-    });
+function clean(html) {
+    const $ = cheerio.load(html);
 
-    const page = await browser.newPage();
+    // remove junk
+    $("script, style, nav, footer, iframe, noscript").remove();
 
-    await page.goto(url, {
-        waitUntil: "domcontentloaded",
-        timeout: 15000
-    });
+    let text = $("body").text();
 
-    const content = await page.evaluate(() => {
-        document.querySelectorAll("script, style, iframe, nav, footer").forEach(el => el.remove());
-        return document.body.innerText;
-    });
+    // clean whitespace
+    text = text.replace(/\s+/g, " ").trim();
 
-    await browser.close();
-
-    return content.slice(0, 8000);
+    return text.slice(0, 8000);
 }
 
 // 🌐 BROWSER ROUTE
@@ -34,13 +26,21 @@ app.get("/browse", async (req, res) => {
         let url = req.query.url;
 
         if (!url) return res.json({ error: "No URL" });
-        if (!url.startsWith("http")) url = "https://" + url;
 
-        const content = await fetchPage(url);
+        if (!url.startsWith("http")) {
+            url = "https://" + url;
+        }
+
+        const response = await axios.get(url, {
+            headers: {
+                "User-Agent": "Mozilla/5.0"
+            },
+            timeout: 10000
+        });
 
         res.json({
             url,
-            content
+            content: clean(response.data)
         });
 
     } catch (err) {
@@ -50,17 +50,19 @@ app.get("/browse", async (req, res) => {
     }
 });
 
-// 🔎 SEARCH ROUTE (Google rendered)
+// 🔎 SEARCH (optional)
 app.get("/search", async (req, res) => {
     try {
         const q = req.query.q;
-        const url = `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+        const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(q)}`;
 
-        const content = await fetchPage(url);
+        const response = await axios.get(url, {
+            headers: { "User-Agent": "Mozilla/5.0" }
+        });
 
         res.json({
             url,
-            content
+            content: clean(response.data)
         });
 
     } catch {
@@ -71,5 +73,5 @@ app.get("/search", async (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-    console.log("🚀 Playwright proxy running on " + PORT);
+    console.log("🚀 Stable proxy running on " + PORT);
 });
