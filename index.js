@@ -17,7 +17,6 @@ function clean(html) {
     return text.slice(0, 5000);
 }
 
-// 🌍 MAIN ROUTE (browser fetch)
 app.get("/browse", async (req, res) => {
     try {
         let url = req.query.url;
@@ -28,9 +27,7 @@ app.get("/browse", async (req, res) => {
         }
 
         const response = await axios.get(url, {
-            headers: {
-                "User-Agent": "Mozilla/5.0"
-            },
+            headers: { "User-Agent": "Mozilla/5.0" },
             timeout: 8000
         });
 
@@ -44,24 +41,8 @@ app.get("/browse", async (req, res) => {
     }
 });
 
-// 🔎 SIMPLE SEARCH ROUTER (Google fallback text)
-app.get("/search", async (req, res) => {
-    try {
-        const q = req.query.q;
-        const url = `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+const PORT = process.env.PORT || 3000;
 
-        const response = await axios.get(url, {
-            headers: { "User-Agent": "Mozilla/5.0" }
-        });
-
-        res.json({
-            url,
-            content: clean(response.data)
-        });
-
-    } catch {
-        res.json({ error: "Search failed" });
-    }
+app.listen(PORT, () => {
+    console.log("Browser proxy running on port " + PORT);
 });
-
-app.listen(3000, () => console.log("🌐 Browser Router running on :3000"));
